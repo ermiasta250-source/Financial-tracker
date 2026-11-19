@@ -1,9 +1,9 @@
 name: Build Ermi Birr APK
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
   build:
@@ -12,7 +12,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Unzip project
-        run: unzip -o "ErmiBirr (1).zip"
+        run: |
+          unzip -o ./*.zip -d project
+          SETTINGS=$(find project -name settings.gradle.kts | head -1)
+          echo "ROOT=$(dirname "$SETTINGS")" >> $GITHUB_ENV
 
       - uses: actions/setup-java@v4
         with:
@@ -26,10 +29,10 @@ jobs:
           gradle-version: 8.9
 
       - name: Build debug APK
-        working-directory: ErmiBirr
-        run: gradle assembleDebug --no-daemon
+        working-directory: ${{ env.ROOT }}
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: ErmiBirr-APK
-          path: ErmiBirr/app/build/outputs/apk/debug/*.apk
+          path: ${{ env.ROOT }}/app/build/outputs/apk/debug/*.apk
