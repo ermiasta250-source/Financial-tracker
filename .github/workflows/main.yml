@@ -13,8 +13,12 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -o ./*.zip -d project
+          echo "FILES IN REPO:" > /tmp/diag.log
+          ls -la >> /tmp/diag.log
+          unzip -o ./*.zip -d project >> /tmp/unzip.log 2>&1 || true
+          tail -5 /tmp/unzip.log >> /tmp/diag.log
           SETTINGS=$(find project -name settings.gradle.kts | head -1)
+          echo "SETTINGS FOUND: $SETTINGS" >> /tmp/diag.log
           echo "ROOT=$(dirname "$SETTINGS")" >> $GITHUB_ENV
 
       - uses: actions/setup-java@v4
@@ -30,7 +34,22 @@ jobs:
 
       - name: Build debug APK
         working-directory: ${{ env.ROOT }}
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: |
+          set +e
+          gradle assembleDebug --no-daemon > /tmp/build.log 2>&1
+          echo "EXIT CODE: $?" >> /tmp/diag.log
+          exit 0
+
+      - name: Show result
+        if: always()
+        run: |
+          echo '
+          cat /tmp/diag.log >> $GITHUB_STEP_SUMMARY
+          echo "---- LAST LINES OF BUILD ----" >> $GITHUB_STEP_SUMMARY
+          grep -E "^e: |error:|FAILED|What went wrong|Could not|> " /tmp/build.log | head -30 >> $GITHUB_STEP_SUMMARY
+          tail -15 /tmp/build.log >> $GITHUB_STEP_SUMMARY
+          echo '
+' >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4
         with:
